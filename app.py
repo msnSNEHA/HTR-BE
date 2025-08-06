@@ -3,24 +3,22 @@ import json
 import os
 import smtplib
 from email.mime.text import MIMEText
+from datetime import datetime
 
 app = Flask(__name__)
 
 DATA_FILE = 'data.json'
 HTR_FILE = 'htr_counter.txt'
-MANAGER_EMAIL = 'msn@juniper.net'  # Change if needed
-SENDER_EMAIL = 'snehamani7310@gmail.com'  # Replace with your email
-SENDER_PASSWORD = 'Sneha@2001'  # Use App Password or SMTP pass
+USED_LINKS_FILE = 'used_links.json'
+MANAGER_EMAIL = 'msn@juniper.net'
+SENDER_EMAIL = 'snehamani7310@gmail.com'
+SENDER_PASSWORD = 'Sneha@2001'  # Replace with an app password or environment variable in production
 
-# Initialize counter
-if not os.path.exists(HTR_FILE):
-    with open(HTR_FILE, 'w') as f:
-        f.write('HTR05237')
-
-# Initialize data file
-if not os.path.exists(DATA_FILE):
-    with open(DATA_FILE, 'w') as f:
-        json.dump({}, f)
+# Initialize counter and data files
+for file, default in [(HTR_FILE, 'HTR05237'), (DATA_FILE, {}), (USED_LINKS_FILE, {})]:
+    if not os.path.exists(file):
+        with open(file, 'w') as f:
+            json.dump(default, f) if isinstance(default, dict) else f.write(default)
 
 def get_next_htr_number():
     with open(HTR_FILE, 'r+') as f:
@@ -36,18 +34,21 @@ def get_next_htr_number():
 def submit_form():
     form_data = request.form.to_dict()
     submission_id = str(len(load_data()) + 1)
-
     save_submission(submission_id, form_data)
 
     # Generate review link
     review_link = f"{request.host_url}review/{submission_id}"
+    send_email(MANAGER_EMAIL, "New HTR Submission", f"Please review here: {review_link}")
 
     print(f"✅ Form submitted. Review link: {review_link}")
-    
     return "Form submitted successfully. Manager will review it soon."
 
 @app.route("/review/<submission_id>")
 def review(submission_id):
+    used_links = load_used_links()
+    if submission_id in used_links:
+        return "❌ This review link has expired or already been used."
+
     data = load_data().get(submission_id)
     if not data:
         return "Submission not found."
@@ -65,24 +66,33 @@ def review(submission_id):
 
 @app.route("/generate_htr/<submission_id>", methods=["POST"])
 def generate_htr(submission_id):
+    used_links = load_used_links()
+    if submission_id in used_links:
+        return "❌ This link has already been used to generate an HTR number."
+
     data = load_data()
     if submission_id not in data:
         return "Submission not found."
 
     htr_number = get_next_htr_number()
     data[submission_id]["HTR Number"] = htr_number
+    data[submission_id]["HTR Generated At"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     save_all_data(data)
 
+    # Mark the link as used
+    used_links[submission_id] = True
+    save_used_links(used_links)
+
     # Send confirmation email to user
-    user_email = data[submission_id].get("Email")  # Change to your actual form field name
-    user_name = data[submission_id].get("Name", "User")  # Change as needed
+    user_email = data[submission_id].get("Email")
+    user_name = data[submission_id].get("Name", "User")
 
     if user_email:
         subject = "Your HTR Number is Generated"
         body = f"Hello {user_name},\n\nYour HTR number has been successfully generated: {htr_number}"
         send_email(user_email, subject, body)
 
-    return f"<h2>HTR Number Generated: {htr_number}</h2><br><a href='/review/{submission_id}'>Back</a>"
+    return f"<h2>HTR Number Generated: {htr_number}</h2><br><strong>✅ This link has now expired.</strong>"
 
 def load_data():
     with open(DATA_FILE, 'r') as f:
@@ -97,7 +107,14 @@ def save_all_data(data):
     with open(DATA_FILE, 'w') as f:
         json.dump(data, f, indent=2)
 
-# ✅ Email sending function
+def load_used_links():
+    with open(USED_LINKS_FILE, 'r') as f:
+        return json.load(f)
+
+def save_used_links(data):
+    with open(USED_LINKS_FILE, 'w') as f:
+        json.dump(data, f, indent=2)
+
 def send_email(to_email, subject, body):
     msg = MIMEText(body)
     msg["Subject"] = subject
