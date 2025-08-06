@@ -10,7 +10,7 @@ app = Flask(__name__)
 DATA_FILE = 'data.json'
 HTR_FILE = 'htr_counter.txt'
 USED_LINKS_FILE = 'used_links.json'
-MANAGER_EMAIL = 'msn@juniper.net'
+MANAGER_EMAIL = 'snehamani7310@gmail.com'
 SENDER_EMAIL = 'snehamani7310@gmail.com'
 SENDER_PASSWORD = 'Sneha@2001'  # Replace with an app password or environment variable in production
 
@@ -88,8 +88,8 @@ def generate_htr(submission_id):
     save_used_links(used_links)
 
     # Send confirmation email to user
-    user_email = data[submission_id].get("Email")
-    user_name = data[submission_id].get("Name", "User")
+    user_email = data[submission_id].get("Requestor_Name")
+    user_name = data[submission_id].get("Name", "Requestor_Email")
 
     if user_email:
         subject = "Your HTR Number is Generated"
@@ -135,3 +135,4 @@ def send_email(to_email, subject, body):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
