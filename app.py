@@ -40,8 +40,7 @@ def submit_form():
     review_link = f"{request.host_url}review/{submission_id}"
     send_email(MANAGER_EMAIL, "New HTR Submission", f"Please review here: {review_link}")
 
-    print(f"✅ Form submitted. Review link: {review_link}")
-    return "Form submitted successfully. Manager will review it soon."
+    return jsonify({"message": "Form submitted successfully.", "review_link": review_link})
 
 @app.route("/review/<submission_id>")
 def review(submission_id):
@@ -54,6 +53,7 @@ def review(submission_id):
         return "Submission not found."
 
     html = f"""
+    <html><head><title>Review HTR</title></head><body>
     <h2>HTR Review for Submission {submission_id}</h2>
     <ul>
         {''.join(f'<li><strong>{k}</strong>: {v}</li>' for k, v in data.items())}
@@ -61,6 +61,7 @@ def review(submission_id):
     <form action="/generate_htr/{submission_id}" method="POST">
         <button type="submit">Generate HTR Number</button>
     </form>
+    </body></html>
     """
     return render_template_string(html)
 
@@ -73,6 +74,9 @@ def generate_htr(submission_id):
     data = load_data()
     if submission_id not in data:
         return "Submission not found."
+
+    if "HTR Number" in data[submission_id]:
+        return f"❌ HTR number already generated: {data[submission_id]['HTR Number']}"
 
     htr_number = get_next_htr_number()
     data[submission_id]["HTR Number"] = htr_number
