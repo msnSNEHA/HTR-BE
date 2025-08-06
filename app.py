@@ -88,8 +88,8 @@ def generate_htr(submission_id):
     save_used_links(used_links)
 
     # Send confirmation email to user
-    user_email = data[submission_id].get("Requestor_Name")
-    user_name = data[submission_id].get("Name", "Requestor_Email")
+    user_email = data[submission_id].get("Requestor_Email")
+    user_name = data[submission_id].get("Name", "Requestor_Name")
 
     if user_email:
         subject = "Your HTR Number is Generated"
@@ -135,4 +135,5 @@ def send_email(to_email, subject, body):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
